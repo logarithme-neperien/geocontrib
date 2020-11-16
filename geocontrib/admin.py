@@ -22,6 +22,7 @@ from geocontrib.forms import HiddenDeleteBaseFormSet
 from geocontrib.forms import HiddenDeleteModelFormSet
 from geocontrib.forms import FeatureSelectFieldAdminForm
 from geocontrib.forms import AddPosgresViewAdminForm
+from geocontrib.forms import ProjectAdminForm
 from geocontrib.models import Authorization
 from geocontrib.models import Feature
 from geocontrib.models import Project
@@ -44,7 +45,7 @@ class UserAdmin(DjangoUserAdmin):
         'is_superuser', 'is_administrator', 'is_staff', 'is_active'
     )
     search_fields = ('id', 'username', 'first_name', 'last_name', 'email')
-    ordering = ('last_name', 'first_name', 'username', )
+    ordering = ('username', 'last_name', 'first_name', )
     verbose_name_plural = 'utilisateurs'
     verbose_name = 'utilisateur'
 
@@ -83,6 +84,18 @@ class UserAdmin(DjangoUserAdmin):
     )
 
 
+class CustomFieldAdmin(admin.ModelAdmin):
+    list_display = ('label', 'name', 'feature_type', 'project_title')
+    ordering = ('feature_type', 'label')
+
+    def project_title(self, obj):
+        try:
+            title = obj.feature_type.project.title
+        except AttributeError:
+            title = 'N/A'
+        return title
+
+
 class CustomFieldTabular(admin.TabularInline):
     model = CustomField
     extra = 0
@@ -94,12 +107,19 @@ class CustomFieldTabular(admin.TabularInline):
 
 class FeatureTypeAdmin(admin.ModelAdmin):
     form = FeatureTypeAdminForm
-    readonly_fields = ('geom_type', )
     inlines = (
         CustomFieldTabular,
     )
-
     change_form_template = 'admin/geocontrib/with_create_postrgres_view.html'
+
+    list_display = ('title', 'project')
+
+    ordering = ('project', 'title')
+
+    def get_readonly_fields(self, request, obj=None):
+        if obj:
+            return self.readonly_fields + ('geom_type', )
+        return self.readonly_fields
 
     def get_urls(self):
         urls = super().get_urls()
@@ -257,14 +277,19 @@ class FeatureAdmin(admin.ModelAdmin):
     ordering = ('project', 'feature_type', 'title')
 
 
+class ProjectAdmin(admin.ModelAdmin):
+    form = ProjectAdminForm
+    ordering = ('title', )
+
+
 admin.site.register(User, UserAdmin)
 admin.site.register(BaseMap, BaseMapAdmin)
-admin.site.register(CustomField)
+admin.site.register(CustomField, CustomFieldAdmin)
 admin.site.register(Layer)
 admin.site.register(Authorization, AuthorizationAdmin)
 admin.site.register(Feature, FeatureAdmin)
 admin.site.register(FeatureType, FeatureTypeAdmin)
-admin.site.register(Project)
+admin.site.register(Project, ProjectAdmin)
 admin.site.register(Subscription)
 admin.site.register(UserLevelPermission)
 # admin.site.register(CustomFieldInterface)
